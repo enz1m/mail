@@ -1,0 +1,9 @@
+/AGENTS/
+/target/
+/.qa-data/
+/.env
+/*.log
+*.profraw
+*.profdata
+__pycache__/
+*.pyc

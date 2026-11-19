@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=Mail
+Comment=Manage local mail, drafts, rules and attachments
+Comment[de]=Lokale E-Mails, Entwürfe, Regeln und Anhänge verwalten
+Comment[ar]=إدارة البريد المحلي والمسودات والقواعد والمرفقات
+Exec=mail-app %U
+Icon=io.github.enzui.Mail
+Terminal=false
+StartupNotify=true
+X-GNOME-UsesNotifications=true
+Categories=Network;Email;
+Keywords=mail;email;inbox;drafts;attachments;
+Keywords[de]=Mail;E-Mail;Posteingang;Entwürfe;Anhänge;
+Keywords[ar]=بريد;بريد إلكتروني;وارد;مسودات;مرفقات;
+StartupWMClass=io.github.enzui.Mail
+MimeType=x-scheme-handler/mailto;

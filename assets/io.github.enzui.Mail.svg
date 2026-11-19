@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>Mail</title>
+  <defs>
+    <filter id="enz-mail-drop" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dy="2" result="blur"/>
+      <feComponentTransfer in="blur" result="shadow">
+        <feFuncA type="linear" slope="0.28"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="enz-mail-body">
+      <rect x="16" y="30" width="96" height="68" rx="9"/>
+    </clipPath>
+  </defs>
+
+  <!-- landscape keyline; envelope 96 x 68 (16..112 x 30..98); flap edges from (10 26)/(118 26) to the apex (64 69),
+       tip rounded 6 px back along each edge -->
+  <g filter="url(#enz-mail-drop)">
+    <rect x="16" y="30" width="96" height="68" rx="9" fill="#FFFFFF"/>
+  </g>
+  <g clip-path="url(#enz-mail-body)">
+    <path d="M16 98 L58 62 Q64 57 70 62 L112 98 Z" fill="#E6ECF4"/>
+    <path d="M10 28 H118 L68.69 67.26 Q64 71 59.31 67.26 Z" fill="#000000" fill-opacity="0.08"/>
+    <path d="M10 26 H118 L68.69 65.26 Q64 69 59.31 65.26 Z" fill="#3AAEF5"/>
+  </g>
+</svg>
