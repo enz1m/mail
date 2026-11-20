@@ -57,6 +57,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 iced_test = { git = "https://github.com/enz1m/enzim-iced.git", rev = "e36b07b591661fdb666088fc943cc0b927a2367b" }
 
 [patch.crates-io]
+accesskit = { git = "https://github.com/enz1m/enzim-accesskit.git", rev = "7da7ac7b800fabf0bd2ba62eef23fa9117a684f4" }
 zbus_macros = { git = "https://github.com/enz1m/enzim-zbus.git", rev = "e182645b56d15e637bb6c8144f99ebfa7f900716" }
 zbus_names = { git = "https://github.com/enz1m/enzim-zbus.git", rev = "e182645b56d15e637bb6c8144f99ebfa7f900716" }
 zvariant = { git = "https://github.com/enz1m/enzim-zbus.git", rev = "e182645b56d15e637bb6c8144f99ebfa7f900716" }

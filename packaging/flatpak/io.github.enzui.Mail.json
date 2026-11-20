@@ -1,0 +1,54 @@
+{
+  "app-id": "io.github.enzui.Mail",
+  "branch": "stable",
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "26.08",
+  "sdk": "org.freedesktop.Sdk",
+  "sdk-extensions": [
+    "org.freedesktop.Sdk.Extension.rust-stable"
+  ],
+  "command": "mail-app",
+  "finish-args": [
+    "--socket=wayland",
+    "--device=dri",
+    "--share=network",
+    "--talk-name=org.freedesktop.secrets"
+  ],
+  "build-options": {
+    "append-path": "/usr/lib/sdk/rust-stable/bin"
+  },
+  "modules": [
+    {
+      "name": "mail",
+      "buildsystem": "simple",
+      "build-commands": [
+        "cargo build --locked --offline --release --jobs \"${FLATPAK_BUILDER_N_JOBS:-2}\" --bin mail-app",
+        "install -Dm755 target/release/mail-app /app/bin/mail-app",
+        "install -Dm644 assets/io.github.enzui.Mail.desktop /app/share/applications/io.github.enzui.Mail.desktop",
+        "install -Dm644 packaging/flatpak/io.github.enzui.Mail.metainfo.xml /app/share/metainfo/io.github.enzui.Mail.metainfo.xml",
+        "install -Dm644 assets/io.github.enzui.Mail.svg /app/share/icons/hicolor/scalable/apps/io.github.enzui.Mail.svg",
+        "install -Dm644 LICENSE /app/share/licenses/io.github.enzui.Mail/LICENSE"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/enz1m/mail.git",
+          "commit": "@ENZIM_SOURCE_COMMIT@",
+          "disable-submodules": true
+        },
+        {
+          "type": "archive",
+          "url": "https://github.com/enz1m/mail/releases/download/v0.1.0/mail-cargo-vendor-0.1.0.tar.xz",
+          "sha256": "a46a555c603e5f901bfc64199b9a3aa837e9d6489701e5e228c393f9d0190a7f",
+          "strip-components": 1
+        },
+        {
+          "type": "file",
+          "url": "https://raw.githubusercontent.com/enz1m/enzim-winit/40eeb41f8637ef1620afa377ba006874224b6d65/wayland-protocols/xdg-session-management-v1.xml",
+          "sha256": "3674591ca8e68f76297c535e8edd6783d84b59086c38ebe08ff5ff1f2dec5bae",
+          "dest": "vendor/winit-0.30.13/wayland-protocols"
+        }
+      ]
+    }
+  ]
+}

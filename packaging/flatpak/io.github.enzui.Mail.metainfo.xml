@@ -1,0 +1,44 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<component type="desktop-application">
+  <id>io.github.enzui.Mail</id>
+  <name>Mail</name>
+  <summary>Manage local mail, drafts, rules and attachments</summary>
+  <summary xml:lang="de">Lokale E-Mails, Entwürfe, Regeln und Anhänge verwalten</summary>
+  <summary xml:lang="ar">إدارة البريد المحلي والمسودات والقواعد والمرفقات</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <url type="homepage">https://github.com/enz1m/mail</url>
+  <url type="bugtracker">https://github.com/enz1m/mail/issues</url>
+  <developer id="io.github.enzui">
+    <name>enzUI contributors</name>
+  </developer>
+  <description>
+    <p>Mail provides a desktop workspace for locally stored messages, drafts,
+       account configuration, rules, signatures and attachment payloads.</p>
+    <p>Configured accounts synchronize mail over TLS-protected IMAP and submit
+       outgoing messages over TLS-protected SMTP. Drafts and queued messages
+       remain available locally while offline.</p>
+  </description>
+  <launchable type="desktop-id">io.github.enzui.Mail.desktop</launchable>
+  <provides>
+    <binary>mail-app</binary>
+  </provides>
+  <categories>
+    <category>Network</category>
+    <category>Email</category>
+  </categories>
+  <icon type="stock">io.github.enzui.Mail</icon>
+  <content_rating type="oars-1.1" />
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/enz1m/mail/c53b9c0942c3bdc77cb3da82cd223e67923910ee/docs/screenshots/basic-dark.png</image>
+    </screenshot>
+  </screenshots>
+  <releases>
+    <release version="0.1.0" date="2026-11-20">
+      <description>
+        <p>Add Flatpak packaging for enzim Apps.</p>
+      </description>
+    </release>
+  </releases>
+</component>
