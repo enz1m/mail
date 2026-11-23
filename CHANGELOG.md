@@ -2,5 +2,5 @@
 
 ## 0.1.1
 
-- Update enzUI and its paired iced fork for nonblocking Wayland presentation discovery.
-- Pick up smoother sidebar transitions and centered view switchers from enzUI.
+- Mail is available on enzim Apps. Add an IMAP and SMTP account to read and send messages, find conversations, and organize incoming mail with rules.
+- The mailbox sidebar opens and closes more smoothly.

@@ -37,8 +37,8 @@
   <releases>
     <release version="0.1.1" date="2026-11-23">
       <description>
-        <p>Update enzUI and its paired iced fork for nonblocking Wayland presentation discovery.</p>
-        <p>Pick up smoother sidebar transitions and centered view switchers from enzUI.</p>
+        <p>Mail is available on enzim Apps. Add an IMAP and SMTP account to read and send messages, find conversations, and organize incoming mail with rules.</p>
+        <p>The mailbox sidebar opens and closes more smoothly.</p>
       </description>
     </release>
     <release version="0.1.0" date="2026-11-20">
