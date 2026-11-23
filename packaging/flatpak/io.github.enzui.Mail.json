@@ -38,8 +38,8 @@
         },
         {
           "type": "archive",
-          "url": "https://github.com/enz1m/mail/releases/download/v0.1.0/mail-cargo-vendor-0.1.0.tar.xz",
-          "sha256": "44d3de580727b0acb7fb07a76e43558546a1467ba4e618fbcb83727ffd0242cc",
+          "url": "https://github.com/enz1m/mail/releases/download/v0.1.1/mail-cargo-vendor-0.1.1.tar.xz",
+          "sha256": "fee2dab67e291e2bbcc745f3ae52c2e05b8a2cbbf72d95a21c37292494aeda72",
           "strip-components": 1
         },
         {
