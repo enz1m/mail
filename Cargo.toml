@@ -37,8 +37,8 @@ enzui-iced-agent-app = { package = "enzui-agent-app", optional = true, git = "ht
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = "1"
 
-enzui-webkit = { git = "https://github.com/enz1m/enzim-webkit-rs.git", rev = "e7fd0c9e16b22d9a83c1578b8e74662e1cbc7add", default-features = false }
-enzui-iced-webview = { package = "enzui-webview", git = "https://github.com/enz1m/enzim-webkit-rs.git", rev = "e7fd0c9e16b22d9a83c1578b8e74662e1cbc7add", default-features = false }
+enzui-webkit = { git = "https://github.com/enz1m/enzim-webkit-rs.git", rev = "0df9c0976b89153bdefa361759ec78be99e44784", default-features = false }
+enzui-iced-webview = { package = "enzui-webview", git = "https://github.com/enz1m/enzim-webkit-rs.git", rev = "0df9c0976b89153bdefa361759ec78be99e44784", default-features = false }
 ammonia = "4"
 blitz-html = "=0.3.0-beta.4"
 blitz-dom = { version = "=0.3.0-beta.4", default-features = false, features = ["system-fonts", "accessibility", "floats"] }
