@@ -158,6 +158,59 @@ fn mail_backend_hostile_mime_isolated_and_filename_encoding_is_bounded_before_st
 }
 
 #[test]
+fn real_world_mime_with_legacy_charsets_and_loose_headers_parses_completely() {
+    let mut raw = b"Received: from mx.example.net\r\n".to_vec();
+    raw.extend_from_slice(b"X-Spam_score: 0.1\r\nX-Spam_bar: /\r\n");
+    raw.extend_from_slice(b"Subject: Caf\xe9 r\xe9sum\xe9\r\n");
+    raw.extend_from_slice(b"MIME-Version: 1.0\r\n");
+    raw.extend_from_slice(b"Content-Type: multipart/mixed; boundary=\"outer;part\";\r\n\r\n");
+    raw.extend_from_slice(b"--outer;part\r\n");
+    raw.extend_from_slice(b"Content-Type: text/plain; charset=\"windows-1252\";\r\n");
+    raw.extend_from_slice(b"Content-Transfer-Encoding: quoted-printable\r\n\r\n");
+    raw.extend_from_slice(b"Total =80 12 =96 =93final=94\r\n");
+    raw.extend_from_slice(b"--outer;part\r\n");
+    raw.extend_from_slice(b"Content-Type: text/html; charset=ISO-8859-1\r\n");
+    raw.extend_from_slice(b"Content-Transfer-Encoding: 8bit\r\n\r\n");
+    raw.extend_from_slice(b"<p>Gr\xfc\xdfe aus K\xf6ln</p>\r\n");
+    raw.extend_from_slice(b"--outer;part\r\n");
+    raw.extend_from_slice(b"Content-Type: application/pdf; name=\"invoice.pdf\"\r\n");
+    raw.extend_from_slice(b"Content-Disposition: attachment; filename*=iso-8859-1''re%E7u.pdf\r\n");
+    raw.extend_from_slice(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG8=\r\n");
+    raw.extend_from_slice(b"--outer;part--\r\n");
+
+    let parsed = parse_mime_message(&raw).expect("real-world MIME parses");
+    assert_eq!(parsed.body_state, MessageBodyState::Complete);
+    assert_eq!(
+        parsed.body.trim_end(),
+        "Total \u{20ac} 12 \u{2013} \u{201c}final\u{201d}"
+    );
+    assert!(
+        parsed
+            .body_html
+            .as_deref()
+            .is_some_and(|html| html.contains("Gr\u{fc}\u{df}e aus K\u{f6}ln"))
+    );
+    assert_eq!(parsed.attachments.len(), 1);
+    assert_eq!(parsed.attachments[0].name, "re\u{e7}u.pdf");
+    assert_eq!(parsed.attachments[0].bytes, b"hello");
+
+    let single = b"Content-Type: text/plain; charset=iso-8859-1;;\r\n\r\nna\xefve\r\n";
+    assert_eq!(
+        parse_mime_message(single)
+            .expect("single part parses")
+            .body
+            .trim_end(),
+        "na\u{ef}ve"
+    );
+    assert!(matches!(
+        parse_mime_message(
+            b"Content-Type: text/plain\r\nContent-Type: text/html; charset=windows-1252\r\n\r\nbody"
+        ),
+        Err(MimeParseFailure::Headers)
+    ));
+}
+
+#[test]
 fn mail_backend_production_transport_gates_plaintext_starttls_and_runtime_protocols() {
     assert_eq!(
         imap_endpoint_url("mail.example.com", 993, Encryption::Tls, "INBOX").expect("TLS endpoint"),

@@ -34,7 +34,6 @@ pub(super) enum MimeParseFailure {
     Headers,
     Multipart,
     TransferEncoding,
-    FilenameEncoding,
 }
 
 #[derive(Clone, Debug)]
@@ -74,10 +73,10 @@ pub(super) fn parse_mime_message(raw: &[u8]) -> Result<ParsedMessageContent, Mim
                 bytes: leaf.bytes,
             });
         } else if leaf.media_type == "text/plain" && plain.is_none() {
-            let text = decode_text(&leaf.bytes, leaf.charset.as_deref())?;
+            let text = decode_text(&leaf.bytes, leaf.charset.as_deref());
             plain = Some((leaf.part, text));
         } else if leaf.media_type == "text/html" && html.is_none() {
-            let source = decode_text(&leaf.bytes, leaf.charset.as_deref())?;
+            let source = decode_text(&leaf.bytes, leaf.charset.as_deref());
             html = Some((leaf.part, source));
         }
     }
@@ -151,7 +150,7 @@ fn parse_mime_entity(
     if media_type.is_empty()
         || !media_type
             .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b'-' | b'.' | b'+'))
+            .all(|byte| byte.is_ascii_alphanumeric() || b"/!#$&-^_.+".contains(&byte))
     {
         return Err(MimeParseFailure::Headers);
     }
@@ -190,12 +189,12 @@ fn parse_mime_entity(
         return Err(MimeParseFailure::Headers);
     }
     let filename = parameter_value(&disposition_parameters, "filename*")
-        .map(decode_extended_filename)
-        .transpose()?
-        .or_else(|| parameter_value(&disposition_parameters, "filename").map(str::to_owned))
-        .or_else(|| parameter_value(&content_parameters, "name").map(str::to_owned))
-        .map(|name| decode_encoded_word(&name))
-        .transpose()?
+        .and_then(decode_extended_filename)
+        .or_else(|| {
+            parameter_value(&disposition_parameters, "filename")
+                .or_else(|| parameter_value(&content_parameters, "name"))
+                .map(crate::model::header_text::decode_header_text)
+        })
         .map(|name| crate::attachment_store::bounded_display_name(&name));
     let content_id = headers
         .get("content-id")
@@ -234,15 +233,10 @@ fn parse_mime_entity(
     Ok(())
 }
 
-fn decode_text(bytes: &[u8], charset: Option<&str>) -> Result<String, MimeParseFailure> {
-    if charset.is_some_and(|value| {
-        !value.eq_ignore_ascii_case("utf-8") && !value.eq_ignore_ascii_case("us-ascii")
-    }) {
-        return Err(MimeParseFailure::TransferEncoding);
-    }
-    std::str::from_utf8(bytes)
-        .map(str::to_owned)
-        .map_err(|_| MimeParseFailure::TransferEncoding)
+fn decode_text(bytes: &[u8], charset: Option<&str>) -> String {
+    charset
+        .and_then(|label| crate::model::header_text::decode_charset(label, bytes))
+        .unwrap_or_else(|| String::from_utf8_lossy(bytes).into_owned())
 }
 
 fn split_mime_head(raw: &[u8]) -> Result<(&[u8], &[u8]), MimeParseFailure> {
@@ -266,7 +260,7 @@ fn parse_mime_headers(raw: &[u8]) -> Result<BTreeMap<String, String>, MimeParseF
     if raw.len() > MAX_MIME_HEADER_BYTES {
         return Err(MimeParseFailure::Bounds);
     }
-    let text = std::str::from_utf8(raw).map_err(|_| MimeParseFailure::Headers)?;
+    let text = String::from_utf8_lossy(raw);
     let mut headers = BTreeMap::new();
     let mut current_name = None::<String>;
     let mut current_value = String::new();
@@ -278,7 +272,7 @@ fn parse_mime_headers(raw: &[u8]) -> Result<BTreeMap<String, String>, MimeParseF
         }
         if line.starts_with(' ') || line.starts_with('\t') {
             if current_name.is_none() {
-                return Err(MimeParseFailure::Headers);
+                continue;
             }
             if !current_value.is_empty() {
                 current_value.push(' ');
@@ -293,14 +287,13 @@ fn parse_mime_headers(raw: &[u8]) -> Result<BTreeMap<String, String>, MimeParseF
         if count > MAX_MIME_HEADER_COUNT {
             return Err(MimeParseFailure::Bounds);
         }
-        let (name, value) = line.split_once(':').ok_or(MimeParseFailure::Headers)?;
-        if name.is_empty()
-            || name.len() > 128
-            || !name
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        let Some((name, value)) = line.split_once(':') else {
+            continue;
+        };
+        let name = name.trim_end_matches([' ', '\t']);
+        if name.is_empty() || name.len() > 128 || !name.bytes().all(|byte| byte.is_ascii_graphic())
         {
-            return Err(MimeParseFailure::Headers);
+            continue;
         }
         current_name = Some(name.to_ascii_lowercase());
         current_value.push_str(value.trim());
@@ -386,7 +379,7 @@ fn insert_mime_header(
 }
 
 fn parse_header_value(value: &str) -> Result<(String, Vec<(String, String)>), MimeParseFailure> {
-    let mut pieces = value.split(';');
+    let mut pieces = split_parameters(value)?.into_iter();
     let main = pieces
         .next()
         .unwrap_or_default()
@@ -397,26 +390,68 @@ fn parse_header_value(value: &str) -> Result<(String, Vec<(String, String)>), Mi
     }
     let mut parameters = Vec::new();
     for piece in pieces {
-        let (name, value) = piece.split_once('=').ok_or(MimeParseFailure::Headers)?;
+        let Some((name, value)) = piece.split_once('=') else {
+            continue;
+        };
         let name = name.trim().to_ascii_lowercase();
-        if name.is_empty() || name.len() > 64 {
+        if name.is_empty() || name.contains(['"', ' ', '\t']) {
+            continue;
+        }
+        if name.len() > 64 {
             return Err(MimeParseFailure::Bounds);
         }
-        let value = value.trim();
-        let value = if value.starts_with('"') {
-            value
-                .strip_prefix('"')
-                .and_then(|value| value.strip_suffix('"'))
-                .ok_or(MimeParseFailure::Headers)?
-        } else {
-            value
-        };
+        let value = unquote(value.trim());
         if value.len() > 1024 {
             return Err(MimeParseFailure::Bounds);
         }
-        parameters.push((name, value.to_owned()));
+        parameters.push((name, value));
     }
     Ok((main, parameters))
+}
+
+// Splits at `;` outside quoted strings and drops empty parameters.
+fn split_parameters(value: &str) -> Result<Vec<&str>, MimeParseFailure> {
+    let mut pieces = Vec::new();
+    let mut start = 0;
+    let mut quoted = false;
+    let mut escaped = false;
+    for (index, character) in value.char_indices() {
+        match character {
+            _ if escaped => escaped = false,
+            '\\' if quoted => escaped = true,
+            '"' => quoted = !quoted,
+            ';' if !quoted => {
+                pieces.push(&value[start..index]);
+                start = index + 1;
+            }
+            _ => {}
+        }
+    }
+    if quoted {
+        return Err(MimeParseFailure::Headers);
+    }
+    pieces.push(&value[start..]);
+    let mut pieces = pieces.into_iter();
+    let main = pieces.next().unwrap_or_default();
+    Ok(std::iter::once(main)
+        .chain(pieces.filter(|piece| !piece.trim().is_empty()))
+        .collect())
+}
+
+fn unquote(value: &str) -> String {
+    let Some(inner) = value.strip_prefix('"') else {
+        return value.to_owned();
+    };
+    let mut out = String::with_capacity(inner.len());
+    let mut characters = inner.chars();
+    while let Some(character) = characters.next() {
+        match character {
+            '\\' => out.extend(characters.next()),
+            '"' => break,
+            _ => out.push(character),
+        }
+    }
+    out
 }
 
 fn parameter_value<'a>(parameters: &'a [(String, String)], name: &str) -> Option<&'a str> {
@@ -476,13 +511,7 @@ pub(super) fn decode_transfer(
     limit: usize,
 ) -> Result<Vec<u8>, MimeParseFailure> {
     match encoding {
-        "7bit" => {
-            if bytes.iter().any(|byte| !byte.is_ascii()) || bytes.len() > limit {
-                return Err(MimeParseFailure::TransferEncoding);
-            }
-            Ok(bytes.to_vec())
-        }
-        "8bit" | "binary" => {
+        "7bit" | "8bit" | "binary" => {
             if bytes.len() > limit {
                 return Err(MimeParseFailure::Bounds);
             }
@@ -607,64 +636,23 @@ fn hex_value(byte: u8) -> Option<u8> {
     }
 }
 
-fn decode_extended_filename(value: &str) -> Result<String, MimeParseFailure> {
-    let (charset, encoded) = value
-        .split_once("''")
-        .ok_or(MimeParseFailure::FilenameEncoding)?;
-    if !charset.eq_ignore_ascii_case("utf-8") && !charset.eq_ignore_ascii_case("us-ascii") {
-        return Err(MimeParseFailure::FilenameEncoding);
-    }
-    let bytes = percent_decode(encoded)?;
-    String::from_utf8(bytes).map_err(|_| MimeParseFailure::FilenameEncoding)
+fn decode_extended_filename(value: &str) -> Option<String> {
+    let mut fields = value.splitn(3, '\'');
+    let charset = fields.next()?;
+    let _language = fields.next()?;
+    let bytes = percent_decode(fields.next()?)?;
+    Some(decode_text(&bytes, Some(charset)))
 }
 
-fn decode_encoded_word(value: &str) -> Result<String, MimeParseFailure> {
-    if !value.starts_with("=?") {
-        return Ok(value.to_owned());
-    }
-    let inner = value
-        .strip_prefix("=?")
-        .and_then(|value| value.strip_suffix("?="))
-        .ok_or(MimeParseFailure::FilenameEncoding)?;
-    let mut fields = inner.splitn(3, '?');
-    let charset = fields.next().ok_or(MimeParseFailure::FilenameEncoding)?;
-    let encoding = fields.next().ok_or(MimeParseFailure::FilenameEncoding)?;
-    let payload = fields.next().ok_or(MimeParseFailure::FilenameEncoding)?;
-    if !charset.eq_ignore_ascii_case("utf-8") && !charset.eq_ignore_ascii_case("us-ascii") {
-        return Err(MimeParseFailure::FilenameEncoding);
-    }
-    let bytes = if encoding.eq_ignore_ascii_case("b") {
-        decode_base64(
-            payload.as_bytes(),
-            crate::attachment_store::MAX_ATTACHMENT_NAME_BYTES,
-        )?
-    } else if encoding.eq_ignore_ascii_case("q") {
-        decode_quoted_printable(
-            payload.replace('_', " ").as_bytes(),
-            crate::attachment_store::MAX_ATTACHMENT_NAME_BYTES,
-        )?
-    } else {
-        return Err(MimeParseFailure::FilenameEncoding);
-    };
-    String::from_utf8(bytes).map_err(|_| MimeParseFailure::FilenameEncoding)
-}
-
-fn percent_decode(value: &str) -> Result<Vec<u8>, MimeParseFailure> {
+fn percent_decode(value: &str) -> Option<Vec<u8>> {
     let bytes = value.as_bytes();
-    let mut out = Vec::with_capacity(
-        bytes
-            .len()
-            .min(crate::attachment_store::MAX_ATTACHMENT_NAME_BYTES),
-    );
+    let mut out = Vec::with_capacity(bytes.len());
     let mut index = 0_usize;
     while index < bytes.len() {
         let byte = if bytes[index] == b'%' {
-            let pair = bytes
-                .get(index + 1..index + 3)
-                .ok_or(MimeParseFailure::FilenameEncoding)?;
+            let pair = bytes.get(index + 1..index + 3)?;
             index += 3;
-            (hex_value(pair[0]).ok_or(MimeParseFailure::FilenameEncoding)? << 4)
-                | hex_value(pair[1]).ok_or(MimeParseFailure::FilenameEncoding)?
+            (hex_value(pair[0])? << 4) | hex_value(pair[1])?
         } else {
             let byte = bytes[index];
             index += 1;
@@ -674,9 +662,10 @@ fn percent_decode(value: &str) -> Result<Vec<u8>, MimeParseFailure> {
             &mut out,
             byte,
             crate::attachment_store::MAX_ATTACHMENT_NAME_BYTES,
-        )?;
+        )
+        .ok()?;
     }
-    Ok(out)
+    Some(out)
 }
 
 pub(super) fn address_parts(address: &imap_proto::Address<'_>) -> (String, String) {

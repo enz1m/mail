@@ -3115,6 +3115,7 @@ dependencies = [
  "cssparser",
  "curl",
  "cursor-icon",
+ "encoding_rs",
  "enzui-agent",
  "enzui-agent-app",
  "enzui-core",

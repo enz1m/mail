@@ -59,30 +59,9 @@ fn decode_word(text: &str) -> Option<(String, usize)> {
     Some((decoded, used))
 }
 
-fn decode_charset(charset: &str, bytes: &[u8]) -> Option<String> {
-    match charset.to_ascii_lowercase().as_str() {
-        "utf-8" | "utf8" | "us-ascii" | "ascii" => {
-            Some(String::from_utf8_lossy(bytes).into_owned())
-        }
-        "iso-8859-1" | "latin1" | "iso-8859-15" => {
-            Some(bytes.iter().map(|&b| char::from(b)).collect())
-        }
-        "windows-1252" | "cp1252" => Some(bytes.iter().map(|&b| cp1252(b)).collect()),
-        _ => None,
-    }
-}
-
-// Windows-1252 differs from Latin-1 only in 0x80..0xA0.
-fn cp1252(byte: u8) -> char {
-    const HIGH: [char; 32] = [
-        '€', '\u{81}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{8d}', 'Ž',
-        '\u{8f}', '\u{90}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u{9d}',
-        'ž', 'Ÿ',
-    ];
-    match byte {
-        0x80..=0x9F => HIGH[usize::from(byte - 0x80)],
-        _ => char::from(byte),
-    }
+pub(crate) fn decode_charset(charset: &str, bytes: &[u8]) -> Option<String> {
+    let encoding = encoding_rs::Encoding::for_label_no_replacement(charset.trim().as_bytes())?;
+    Some(encoding.decode_with_bom_removal(bytes).0.into_owned())
 }
 
 fn decode_q(payload: &str) -> Option<Vec<u8>> {

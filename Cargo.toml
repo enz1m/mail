@@ -27,6 +27,7 @@ enzui-services = { features = ["secret-service", "oauth", "mail-transport"], git
 curl = { version = "=0.4.50", default-features = false, features = ["ssl"] }
 futures-channel = "=0.3.33"
 imap-proto = "0.17"
+encoding_rs = "0.8"
 tokio = { version = "1.54.1", features = ["time"] }
 enzui-iced-theme = { package = "enzui-theme", git = "https://github.com/enz1m/enzui.git", rev = "27d8e8bb1951713ff3c45d6b5a7cb4e2e782c610" }
 enzui-iced-resources = { package = "enzui-resources", git = "https://github.com/enz1m/enzui.git", rev = "27d8e8bb1951713ff3c45d6b5a7cb4e2e782c610" }
