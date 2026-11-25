@@ -1001,9 +1001,12 @@ fn parse_mutation_kind(kind: &str, value: &str, line: usize) -> Result<ServerMut
             "0" => Ok(ServerMutationKind::SetFlagged(false)),
             _ => Err(format!("line {line}: invalid flagged value")),
         },
-        "empty" => parse_mailbox(value)
-            .map(ServerMutationKind::EmptyMailbox)
-            .ok_or_else(|| format!("line {line}: invalid empty mailbox")),
+        "empty" => match parse_mailbox(value) {
+            Some(MailboxKind::Trash) => Ok(ServerMutationKind::EmptyMailbox(MailboxKind::Trash)),
+            // Only Trash is expunged; emptying any other mailbox moves its messages to Trash.
+            Some(_) => Ok(ServerMutationKind::Move(MailboxKind::Trash)),
+            None => Err(format!("line {line}: invalid empty mailbox")),
+        },
         "rules" => Ok(ServerMutationKind::RulesApplied),
         _ => Err(format!("line {line}: invalid mutation kind")),
     }

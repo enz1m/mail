@@ -433,11 +433,15 @@ impl State {
                     })
                     .map(|message| message.id.clone())
                     .collect::<Vec<_>>();
+                let server_kind = match kind {
+                    MailboxKind::Trash => {
+                        local_state::ServerMutationKind::EmptyMailbox(MailboxKind::Trash)
+                    }
+                    MailboxKind::Junk => local_state::ServerMutationKind::Move(MailboxKind::Trash),
+                    _ => return focus_task,
+                };
                 let emptied = !ids.is_empty()
-                    && self.queue_server_mutations_for_messages(
-                        local_state::ServerMutationKind::EmptyMailbox(kind),
-                        &ids,
-                    )
+                    && self.queue_server_mutations_for_messages(server_kind, &ids)
                     && model::bulk::empty_mailbox(&mut self.store, kind, &account_id) > 0;
                 if emptied {
                     self.reconcile_after_mutation();

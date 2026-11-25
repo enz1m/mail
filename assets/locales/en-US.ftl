@@ -170,6 +170,7 @@ mail-mailbox-actions = Mailbox actions
 mail-mailbox-content-ignored = Mailbox content ignored
 mail-mailbox-content-was-not-staged = Mailbox content was not staged
 mail-mailbox-identity-changed = Mailbox identity changed
+mail-mailbox-not-found-on-server = Mailbox not found on server
 mail-mailbox-refresh-unavailable = Mailbox refresh unavailable
 mail-mailbox-summary = { $label } · { $count ->
     [one] { $count } message

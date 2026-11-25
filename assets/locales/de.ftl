@@ -196,6 +196,7 @@ mail-mailbox-actions = Postfachaktionen
 mail-mailbox-content-ignored = Postfachinhalt ignoriert
 mail-mailbox-content-was-not-staged = Postfachinhalt wurde nicht vorbereitet
 mail-mailbox-identity-changed = Postfachidentität geändert
+mail-mailbox-not-found-on-server = Postfach auf dem Server nicht gefunden
 mail-mailbox-refresh-unavailable = Postfachaktualisierung nicht verfügbar
 mail-mailbox-summary = { $label } · { $count ->
     [one] { $count } Nachricht

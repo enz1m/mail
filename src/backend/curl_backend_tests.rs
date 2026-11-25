@@ -386,6 +386,15 @@ fn mailbox_fixture_with(
                     String::new()
                 } else if upper.starts_with("SELECT") || upper.starts_with("EXAMINE") {
                     format!("* {count} EXISTS\r\n* OK [UIDVALIDITY 7] valid\r\n")
+                } else if upper.starts_with("LIST") {
+                    concat!(
+                        "* LIST (\\HasNoChildren) \"/\" \"INBOX\"\r\n",
+                        "* LIST (\\HasChildren \\Noselect) \"/\" \"[Gmail]\"\r\n",
+                        "* LIST (\\All \\HasNoChildren) \"/\" \"[Gmail]/All Mail\"\r\n",
+                        "* LIST (\\HasNoChildren \\Junk) \"/\" \"[Gmail]/Spam\"\r\n",
+                        "* LIST (\\HasNoChildren \\Trash) \"/\" \"[Gmail]/Bin\"\r\n",
+                    )
+                    .to_owned()
                 } else if upper.starts_with("STATUS") {
                     format!("* STATUS INBOX (MESSAGES {count} UIDVALIDITY 7)\r\n")
                 } else if upper.starts_with("UID SEARCH") {
@@ -477,6 +486,67 @@ fn server_search_and_older_pages_fetch_only_bounded_missing_messages() {
             );
         }
     }
+}
+
+#[test]
+fn special_use_mailboxes_are_discovered_and_quoted_on_the_wire() {
+    let (port, stop, server) = mailbox_fixture(3);
+    let batch = super::operations::sync_mailbox(
+        6,
+        &loopback_config(port),
+        &Secret::new(b"generated-password".to_vec()),
+        &AtomicBool::new(false),
+        MailboxKind::Junk,
+        &[],
+    );
+    stop.store(true, Ordering::Relaxed);
+    let commands = server.join().unwrap();
+    assert_eq!(batch.unwrap().messages.len(), 3);
+    assert!(commands.contains(&"FULL STATUS \"[GMAIL]/SPAM\" (MESSAGES UIDVALIDITY)".to_owned()));
+    assert!(commands.contains(&"FULL EXAMINE \"[GMAIL]/SPAM\"".to_owned()));
+    assert_eq!(
+        commands
+            .iter()
+            .filter(|command| command.starts_with("FULL LIST"))
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn mailbox_listings_resolve_namespaced_and_unparsed_special_mailboxes() {
+    use super::mailboxes::parse_mailbox_list;
+    let namespaced = parse_mailbox_list(
+        concat!(
+            "* LIST (\\HasChildren) \".\" \"INBOX\"\r\n",
+            "* LIST (\\HasNoChildren) \".\" \"INBOX.Sent Items\"\r\n",
+            "* LIST (\\HasNoChildren) \".\" \"INBOX.Deleted Items\"\r\n",
+            "* LIST (\\HasNoChildren) \".\" \"INBOX.Junk E-mail\"\r\n",
+            "* LIST (\\HasNoChildren) \".\" \"INBOX.Drafts\"\r\n",
+        )
+        .as_bytes(),
+    )
+    .names();
+    assert_eq!(namespaced.sent.as_deref(), Some("INBOX.Sent Items"));
+    assert_eq!(namespaced.trash.as_deref(), Some("INBOX.Deleted Items"));
+    assert_eq!(namespaced.junk.as_deref(), Some("INBOX.Junk E-mail"));
+    assert_eq!(namespaced.drafts.as_deref(), Some("INBOX.Drafts"));
+    assert_eq!(namespaced.archive, None);
+    assert!(
+        super::mailboxes::resolved_mailbox_name(Some(&namespaced), MailboxKind::Archive)
+            .is_err_and(|error| error.kind == MailFailureKind::Unavailable)
+    );
+
+    let partial = parse_mailbox_list(
+        concat!(
+            "* XLIST (\\HasNoChildren \\Spam) \"/\" \"[Gmail]/Spam\"\r\n",
+            "* LIST (\\HasNoChildren \"/\" \"Broken\r\n",
+        )
+        .as_bytes(),
+    )
+    .names();
+    assert_eq!(partial.junk.as_deref(), Some("[Gmail]/Spam"));
+    assert_eq!(partial.archive.as_deref(), Some("Archive"));
 }
 
 #[test]

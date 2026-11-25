@@ -159,6 +159,8 @@ pub(crate) enum MutationDisposition {
     Applied,
     AlreadyApplied,
     StaleIdentity,
+    // The server has no mailbox for the move's destination; nothing was sent.
+    DestinationMissing,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

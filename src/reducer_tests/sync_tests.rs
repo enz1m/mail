@@ -136,3 +136,104 @@ fn imap_mutation_captures_source_identity_before_optimistic_move_and_waits_for_s
     assert!(state.mail_intent.is_none());
     assert!(backend.calls.lock().expect("mail calls lock").is_empty());
 }
+
+#[test]
+fn empty_junk_on_imap_account_moves_messages_to_server_trash() {
+    use enzui_iced_core::modal::DismissCause;
+    use enzui_iced_widgets::confirm_dialog::ConfirmDialogEvent;
+    let mut state = production_state_for_mail_backend();
+    let config = loopback_account_config("acct-junk");
+    state
+        .store
+        .accounts
+        .push(account_from_config(config.clone()));
+    let mut message = model::fixture::seed()
+        .messages
+        .into_iter()
+        .next()
+        .expect("generated message");
+    message.id = "imap-acct-junk-junk-71-9".to_owned();
+    message.account_id = config.id.clone();
+    message.location = MessageLocation::Mailbox(MailboxKind::Junk);
+    state.store.messages.push(message.clone());
+    state.store.mark_dirty();
+
+    let _ = state.update(Message::RequestEmptyMailbox(
+        MailboxKind::Junk,
+        config.id.clone(),
+    ));
+    let _ = state.update(Message::ConfirmEmptyEvent(ConfirmDialogEvent::Resolved(
+        DismissCause::DefaultAction,
+    )));
+
+    assert_eq!(state.pending_server_mutations.len(), 1);
+    let pending = &state.pending_server_mutations[0];
+    assert_eq!(
+        pending.kind,
+        crate::local_state::ServerMutationKind::Move(MailboxKind::Trash)
+    );
+    assert_eq!(pending.server_targets.len(), 1);
+    assert_eq!(pending.server_targets[0].mailbox, MailboxKind::Junk);
+    assert_eq!(pending.server_targets[0].uid, 9);
+    assert!(state.store.message(&message.id).is_some_and(|current| {
+        current.location == MessageLocation::Mailbox(MailboxKind::Trash)
+    }));
+}
+
+#[test]
+fn move_to_a_mailbox_the_server_lacks_returns_messages_to_their_source() {
+    let mut state = production_state_for_mail_backend();
+    let config = loopback_account_config("acct-missing");
+    state
+        .store
+        .accounts
+        .push(account_from_config(config.clone()));
+    let mut message = model::fixture::seed()
+        .messages
+        .into_iter()
+        .next()
+        .expect("generated message");
+    message.id = "imap-acct-missing-71-9".to_owned();
+    message.account_id = config.id.clone();
+    message.location = MessageLocation::Mailbox(MailboxKind::Inbox);
+    state.store.messages.push(message.clone());
+    state.store.mark_dirty();
+    state.perform_move(&[message.id.clone()], MailboxKind::Archive);
+    let mutation_id = state.pending_server_mutations[0].id;
+
+    let generation = 92;
+    let operation = backend::curl_backend::ready_operation(
+        generation,
+        Err(backend::curl_backend::MailFailure::for_test(
+            backend::curl_backend::MailFailureKind::Cancelled,
+        )),
+    );
+    state.mail_generation = generation;
+    state.mail_intent = Some(MailIntent::ReconcileServerMutation {
+        config,
+        mutation_id,
+    });
+    state.mail_cancel = Some((generation, operation.cancel_handle()));
+    drop(state.complete_mail_operation(
+        generation,
+        Ok(backend::curl_backend::MailOperationOutput::Mutation(
+            backend::curl_backend::MutationResult {
+                mutation_id,
+                disposition: backend::curl_backend::MutationDisposition::DestinationMissing,
+                missing_target_ids: Vec::new(),
+            },
+        )),
+    ));
+
+    assert!(state.pending_server_mutations.is_empty());
+    assert!(state.mail_retry.is_none());
+    assert!(state.store.message(&message.id).is_some_and(|current| {
+        current.location == MessageLocation::Mailbox(MailboxKind::Inbox)
+    }));
+    assert!(
+        state
+            .mail_notice
+            .as_ref()
+            .is_some_and(|notice| notice.title == "Mailbox not found on server")
+    );
+}

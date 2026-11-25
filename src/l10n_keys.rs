@@ -309,6 +309,7 @@ pub(super) fn key(source: &str) -> Option<&'static str> {
         "Mailbox content ignored" => Some("mail-mailbox-content-ignored"),
         "Mailbox content was not staged" => Some("mail-mailbox-content-was-not-staged"),
         "Mailbox identity changed" => Some("mail-mailbox-identity-changed"),
+        "Mailbox not found on server" => Some("mail-mailbox-not-found-on-server"),
         "Mailbox refresh unavailable" => Some("mail-mailbox-refresh-unavailable"),
         "Mailbox synchronization incomplete" => Some("mail-mailbox-synchronization-incomplete"),
         "Mailbox synchronization needs restart" => {

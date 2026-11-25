@@ -3,9 +3,13 @@ use super::fetch::{
     parse_message_count, parse_responses, parse_search_uids, parse_uid_validity,
     window_search_command,
 };
+use super::mailboxes::{
+    account_mailbox_names, forget_mailbox_names, imap_mailbox_path, imap_quoted,
+    resolved_mailbox_name, session_mailbox_names,
+};
 use super::transport::{
-    IdleOutcome, ImapSession, imap_endpoint_url, imap_mailbox_name, perform_imap, perform_imap_on,
-    submit_message, uid_set, validate_submission_config, validate_supported_config,
+    IdleOutcome, ImapSession, imap_endpoint_url, perform_imap, perform_imap_on, submit_message,
+    uid_set, validate_submission_config, validate_supported_config,
 };
 use super::types::{
     MailBackend, MailFailure, MailFailureKind, MailOperation, MailOperationInner,
@@ -338,17 +342,19 @@ pub(super) fn sync_mailbox(
         config.incoming.encryption,
         "",
     )?;
-    let mailbox_name = imap_mailbox_name(mailbox);
-    let status_command = format!("STATUS {mailbox_name} (MESSAGES UIDVALIDITY)");
     // One connection and one login for the whole sync, and one command per
     // page of messages rather than one per message.
     let mut session = ImapSession::open(config, secret, cancel, &root_url)?;
-    let status = session.run(&status_command, MAX_CONTROL_RESPONSE_BYTES)?;
+    let mailbox_name = imap_quoted(&session_mailbox_name(&mut session, config, mailbox)?);
+    let status_command = format!("STATUS {mailbox_name} (MESSAGES UIDVALIDITY)");
+    let status = session
+        .run(&status_command, MAX_CONTROL_RESPONSE_BYTES)
+        .inspect_err(|_| forget_mailbox_names(config))?;
     let uid_validity = parse_uid_validity(&status)?;
     let message_count = parse_message_count(&status)?;
     let window_search = window_search_command(message_count, SYNC_WINDOW_MESSAGES);
     session.run(
-        &format!("EXAMINE \"{mailbox_name}\""),
+        &format!("EXAMINE {mailbox_name}"),
         MAX_CONTROL_RESPONSE_BYTES,
     )?;
     let search_window = |session: &mut ImapSession<'_>| -> MailResult<UidPopulation> {
@@ -432,6 +438,19 @@ pub(super) fn sync_mailbox(
 
 pub(crate) const SERVER_SEARCH_LIMIT: usize = 50;
 
+fn session_mailbox_name(
+    session: &mut ImapSession<'_>,
+    config: &AccountConfig,
+    mailbox: MailboxKind,
+) -> MailResult<String> {
+    let names = if mailbox == MailboxKind::Inbox {
+        None
+    } else {
+        session_mailbox_names(session, config)?
+    };
+    resolved_mailbox_name(names.as_ref(), mailbox)
+}
+
 pub(super) fn search_mailbox(
     sync_generation: u64,
     config: &AccountConfig,
@@ -464,15 +483,17 @@ pub(super) fn search_mailbox(
         config.incoming.encryption,
         "",
     )?;
-    let mailbox_name = imap_mailbox_name(mailbox);
     let mut session = ImapSession::open(config, secret, cancel, &root_url)?;
-    let status = session.run(
-        &format!("STATUS {mailbox_name} (MESSAGES UIDVALIDITY)"),
-        MAX_CONTROL_RESPONSE_BYTES,
-    )?;
+    let mailbox_name = imap_quoted(&session_mailbox_name(&mut session, config, mailbox)?);
+    let status = session
+        .run(
+            &format!("STATUS {mailbox_name} (MESSAGES UIDVALIDITY)"),
+            MAX_CONTROL_RESPONSE_BYTES,
+        )
+        .inspect_err(|_| forget_mailbox_names(config))?;
     let uid_validity = parse_uid_validity(&status)?;
     session.run(
-        &format!("EXAMINE \"{mailbox_name}\""),
+        &format!("EXAMINE {mailbox_name}"),
         MAX_CONTROL_RESPONSE_BYTES,
     )?;
     let criteria = if let Some(before) = criteria.strip_prefix("X-MAIL-OLDER ") {
@@ -593,14 +614,39 @@ fn reconcile_and_apply_mutation(
             "IMAP mutation targets cross an identity boundary",
         ));
     }
-    let mailbox_name = imap_mailbox_name(first.mailbox);
     let root_url = imap_endpoint_url(
         &config.incoming.server,
         config.incoming.port,
         config.incoming.encryption,
         "",
     )?;
-    let status_command = format!("STATUS {mailbox_name} (UIDVALIDITY)");
+    let destination = match &mutation.kind {
+        ServerMutationKind::Move(destination) => Some(*destination),
+        _ => None,
+    };
+    let names = if first.mailbox == MailboxKind::Inbox
+        && destination.is_none_or(|destination| destination == MailboxKind::Inbox)
+    {
+        None
+    } else {
+        account_mailbox_names(&config, &secret, cancel, &root_url)?
+    };
+    let mailbox_name = resolved_mailbox_name(names.as_ref(), first.mailbox)?;
+    let destination_name = match destination {
+        Some(destination) => match resolved_mailbox_name(names.as_ref(), destination) {
+            Ok(name) => Some(name),
+            Err(error) if error.kind == MailFailureKind::Unavailable => {
+                return Ok(MutationResult {
+                    mutation_id: mutation.id,
+                    disposition: MutationDisposition::DestinationMissing,
+                    missing_target_ids: Vec::new(),
+                });
+            }
+            Err(error) => return Err(error),
+        },
+        None => None,
+    };
+    let status_command = format!("STATUS {} (UIDVALIDITY)", imap_quoted(&mailbox_name));
     let status = perform_imap(
         &config,
         &secret,
@@ -608,7 +654,8 @@ fn reconcile_and_apply_mutation(
         &root_url,
         Some(&status_command),
         MAX_CONTROL_RESPONSE_BYTES,
-    )?;
+    )
+    .inspect_err(|_| forget_mailbox_names(&config))?;
     if parse_uid_validity(&status)? != first.uid_validity {
         return Ok(MutationResult {
             mutation_id: mutation.id,
@@ -620,7 +667,7 @@ fn reconcile_and_apply_mutation(
         &config.incoming.server,
         config.incoming.port,
         config.incoming.encryption,
-        mailbox_name,
+        &imap_mailbox_path(&mailbox_name),
     )?;
     let requested_uids = mutation
         .server_targets
@@ -694,16 +741,19 @@ fn reconcile_and_apply_mutation(
             )
         }
         ServerMutationKind::Move(destination) => {
-            if *destination == first.mailbox {
+            let Some(destination_name) = destination_name.filter(|_| *destination != first.mailbox)
+            else {
                 return Ok(MutationResult {
                     mutation_id: mutation.id,
                     disposition: MutationDisposition::AlreadyApplied,
                     missing_target_ids,
                 });
-            }
-            format!("UID MOVE {present_set} {}", imap_mailbox_name(*destination))
+            };
+            format!("UID MOVE {present_set} {}", imap_quoted(&destination_name))
         }
-        ServerMutationKind::EmptyMailbox(mailbox) if *mailbox == first.mailbox => {
+        ServerMutationKind::EmptyMailbox(MailboxKind::Trash)
+            if first.mailbox == MailboxKind::Trash =>
+        {
             format!("UID STORE {present_set} +FLAGS.SILENT (\\Deleted)")
         }
         _ => {
@@ -727,6 +777,7 @@ fn reconcile_and_apply_mutation(
         Some(&command),
         MAX_CONTROL_RESPONSE_BYTES,
     )
+    .inspect_err(|_| forget_mailbox_names(&config))
     .map_err(mutation_uncertain)?;
     if matches!(&mutation.kind, ServerMutationKind::EmptyMailbox(_)) {
         let expunge = format!("UID EXPUNGE {present_set}");
@@ -940,11 +991,7 @@ pub(crate) fn watch_inbox(
             "the IMAP server does not offer IDLE",
         ));
     }
-    let mailbox_name = imap_mailbox_name(MailboxKind::Inbox);
-    session.run(
-        &format!("EXAMINE \"{mailbox_name}\""),
-        MAX_CONTROL_RESPONSE_BYTES,
-    )?;
+    session.run("EXAMINE INBOX", MAX_CONTROL_RESPONSE_BYTES)?;
     progress(WatchProgress::Ready);
     loop {
         match session.idle(wake, IDLE_RENEWAL)? {

@@ -265,17 +265,6 @@ fn configure_common(
     Ok(())
 }
 
-pub(super) fn imap_mailbox_name(mailbox: MailboxKind) -> &'static str {
-    match mailbox {
-        MailboxKind::Inbox => "INBOX",
-        MailboxKind::Drafts => "Drafts",
-        MailboxKind::Sent => "Sent",
-        MailboxKind::Junk => "Junk",
-        MailboxKind::Trash => "Trash",
-        MailboxKind::Archive => "Archive",
-    }
-}
-
 pub(super) fn mailbox_identity_token(mailbox: MailboxKind) -> &'static str {
     match mailbox {
         MailboxKind::Inbox => "inbox",

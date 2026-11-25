@@ -26,6 +26,8 @@ pub(crate) const MAX_SMTP_MESSAGE_BYTES: usize = crate::attachment_store::MAX_OU
 
 #[path = "curl_backend/fetch.rs"]
 mod fetch;
+#[path = "curl_backend/mailboxes.rs"]
+mod mailboxes;
 #[path = "curl_backend/mime.rs"]
 mod mime;
 #[path = "curl_backend/oauth.rs"]

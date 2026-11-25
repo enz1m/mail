@@ -362,3 +362,16 @@ fn production_startup_recovers_cached_plain_and_html_previews_without_rewriting_
         matches!(backend.load_raw(FORMAT_ID, VERSION), BackendLoad::Loaded(bytes) if bytes == raw)
     );
 }
+
+#[test]
+fn journaled_empty_of_a_non_trash_mailbox_resumes_as_a_move_to_trash() {
+    use super::{ServerMutationKind, parse_mutation_kind};
+    assert_eq!(
+        parse_mutation_kind("empty", "junk", 1),
+        Ok(ServerMutationKind::Move(MailboxKind::Trash))
+    );
+    assert_eq!(
+        parse_mutation_kind("empty", "trash", 1),
+        Ok(ServerMutationKind::EmptyMailbox(MailboxKind::Trash))
+    );
+}

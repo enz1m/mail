@@ -574,6 +574,45 @@ impl State {
         self.start_next_mail_operation()
     }
 
+    // Nothing reached the server, which still holds the messages in their
+    // source mailbox, so the local move is reverted rather than retried.
+    fn restore_unplaceable_move(
+        &mut self,
+        intent: &MailIntent,
+        mutation: &local_state::PendingServerMutation,
+    ) -> Task<Message> {
+        self.pending_server_mutations
+            .retain(|pending| pending.id != mutation.id);
+        let mut restored = false;
+        for target in &mutation.server_targets {
+            if let Some(message) = self
+                .store
+                .messages
+                .iter_mut()
+                .find(|message| message.id == target.message_id)
+            {
+                message.location = model::types::MessageLocation::Mailbox(target.mailbox);
+                restored = true;
+            }
+        }
+        if restored {
+            self.store.mark_dirty();
+            self.reconcile_after_mutation();
+        }
+        self.mail_retry = None;
+        self.mail_notice = Some(MailNotice {
+            title: crate::l10n::tr("Mailbox not found on server"),
+            body: "The server has no mailbox to receive this move. The messages remain in their original mailbox."
+                .to_owned(),
+            retryable: false,
+            can_cancel_outbox: false,
+        });
+        match mutation.server_targets.first() {
+            Some(target) => self.queue_mailbox_sync(intent.config().clone(), target.mailbox),
+            None => self.start_next_mail_operation(),
+        }
+    }
+
     pub(crate) fn complete_mail_operation(
         &mut self,
         generation: u64,
@@ -741,6 +780,11 @@ impl State {
                 else {
                     return self.start_next_mail_operation();
                 };
+                if outcome.disposition
+                    == backend::curl_backend::MutationDisposition::DestinationMissing
+                {
+                    return self.restore_unplaceable_move(&intent, &mutation);
+                }
                 let stale_identity = outcome.disposition
                     == backend::curl_backend::MutationDisposition::StaleIdentity;
                 // A moved message keeps its local copy in the destination until
