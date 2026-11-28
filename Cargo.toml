@@ -1,7 +1,7 @@
 [package]
 name = "mail-app"
 repository = "https://github.com/enz1m/mail"
-version = "0.1.1"
+version = "0.1.3"
 authors = ["enzUI contributors"]
 edition = "2024"
 publish = false
@@ -18,27 +18,27 @@ center = ["dep:enzui-iced-agent", "dep:enzui-iced-agent-app", "dep:serde"]
 
 [dependencies]
 tempfile = "3"
-enzui-parent-lease = { git = "https://github.com/enz1m/enzui.git", rev = "46f267ecf6642423a7d716488200a5ceb8726655" }
-enzui-wayland = { git = "https://github.com/enz1m/enzui.git", rev = "46f267ecf6642423a7d716488200a5ceb8726655" }
-iced = { default-features = false, features = ["wgpu", "tiny-skia", "crisp", "web-colors", "thread-pool", "linux-theme-detection", "wayland", "canvas", "svg", "a11y", "tokio"], git = "https://github.com/enz1m/enzim-iced.git", rev = "838066d2e7373e87cfb42e62cca5a1dc9625b5f9" }
-iced_renderer = { default-features = false, git = "https://github.com/enz1m/enzim-iced.git", rev = "838066d2e7373e87cfb42e62cca5a1dc9625b5f9" }
-enzui-iced-core = { package = "enzui-core", features = ["accesskit", "application-dbus", "activation-native-iced", "notification-freedesktop"], git = "https://github.com/enz1m/enzui.git", rev = "46f267ecf6642423a7d716488200a5ceb8726655" }
-enzui-services = { features = ["secret-service", "oauth", "mail-transport"], git = "https://github.com/enz1m/enzui.git", rev = "46f267ecf6642423a7d716488200a5ceb8726655" }
+enzui-parent-lease = { git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+enzui-wayland = { git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+iced = { default-features = false, features = ["wgpu", "tiny-skia", "crisp", "web-colors", "thread-pool", "linux-theme-detection", "wayland", "canvas", "svg", "a11y", "tokio"], git = "https://github.com/enz1m/enzim-iced.git", rev = "58b66f27b82d30cb0fd09db524307b6a0e099279" }
+iced_renderer = { default-features = false, git = "https://github.com/enz1m/enzim-iced.git", rev = "58b66f27b82d30cb0fd09db524307b6a0e099279" }
+enzui-iced-core = { package = "enzui-core", features = ["accesskit", "application-dbus", "activation-native-iced", "notification-freedesktop"], git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+enzui-services = { features = ["secret-service", "oauth", "mail-transport"], git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
 curl = { version = "=0.4.50", default-features = false, features = ["ssl"] }
 futures-channel = "=0.3.33"
 imap-proto = "0.17"
 encoding_rs = "0.8"
 tokio = { version = "1.54.1", features = ["time"] }
-enzui-iced-theme = { package = "enzui-theme", git = "https://github.com/enz1m/enzui.git", rev = "46f267ecf6642423a7d716488200a5ceb8726655" }
-enzui-iced-resources = { package = "enzui-resources", git = "https://github.com/enz1m/enzui.git", rev = "46f267ecf6642423a7d716488200a5ceb8726655" }
-enzui-iced-widgets = { package = "enzui-widgets", features = ["portal-dbus", "application-dbus"], git = "https://github.com/enz1m/enzui.git", rev = "46f267ecf6642423a7d716488200a5ceb8726655" }
-enzui-iced-agent = { package = "enzui-agent", features = ["iced-consumer"], optional = true, git = "https://github.com/enz1m/enzui.git", rev = "46f267ecf6642423a7d716488200a5ceb8726655" }
-enzui-iced-agent-app = { package = "enzui-agent-app", optional = true, git = "https://github.com/enz1m/enzui.git", rev = "46f267ecf6642423a7d716488200a5ceb8726655" }
+enzui-iced-theme = { package = "enzui-theme", git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+enzui-iced-resources = { package = "enzui-resources", git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+enzui-iced-widgets = { package = "enzui-widgets", features = ["portal-dbus", "application-dbus"], git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+enzui-iced-agent = { package = "enzui-agent", features = ["iced-consumer"], optional = true, git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+enzui-iced-agent-app = { package = "enzui-agent-app", optional = true, git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = "1"
 
-enzui-webkit = { git = "https://github.com/enz1m/enzim-webkit-rs.git", rev = "5928c6d603bc534b26e3ac734a1f6c1013c44bfd", default-features = false }
-enzui-iced-webview = { package = "enzui-webview", git = "https://github.com/enz1m/enzim-webkit-rs.git", rev = "5928c6d603bc534b26e3ac734a1f6c1013c44bfd", default-features = false }
+enzui-webkit = { git = "https://github.com/enz1m/enzim-webkit-rs.git", rev = "dd5cf6c44ab478d57fc85ad5a383e00442782584", default-features = false }
+enzui-iced-webview = { package = "enzui-webview", git = "https://github.com/enz1m/enzim-webkit-rs.git", rev = "dd5cf6c44ab478d57fc85ad5a383e00442782584", default-features = false }
 ammonia = "4"
 blitz-html = "=0.3.0-beta.4"
 blitz-dom = { version = "=0.3.0-beta.4", default-features = false, features = ["system-fonts", "accessibility", "floats"] }
@@ -55,7 +55,7 @@ url = "2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 
 [dev-dependencies]
-iced_test = { git = "https://github.com/enz1m/enzim-iced.git", rev = "838066d2e7373e87cfb42e62cca5a1dc9625b5f9" }
+iced_test = { git = "https://github.com/enz1m/enzim-iced.git", rev = "58b66f27b82d30cb0fd09db524307b6a0e099279" }
 
 [patch.crates-io]
 accesskit = { git = "https://github.com/enz1m/enzim-accesskit.git", rev = "7da7ac7b800fabf0bd2ba62eef23fa9117a684f4" }

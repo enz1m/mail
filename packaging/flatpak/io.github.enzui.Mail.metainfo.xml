@@ -35,6 +35,9 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.3" date="2026-11-28">
+      <description><p>Use standard IMAP mailbox roles, move emptied Junk to Trash, and improve parsing of mail with legacy encodings.</p></description>
+    </release>
     <release version="0.1.1" date="2026-11-23">
       <description>
         <p>Mail is available on enzim Apps. Add an IMAP and SMTP account to read and send messages, find conversations, and organize incoming mail with rules.</p>
